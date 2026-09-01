@@ -1,0 +1,189 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --border-radius: 5px;
+  --box-shadow-x: 4px;
+  --box-shadow-y: 4px;
+  --reverse-box-shadow-x: -4px;
+  --reverse-box-shadow-y: -4px;
+
+  --heading-font-weight: 700;
+  --base-font-weight: 500;
+
+  /* Neobrutalism amber */
+  --background: oklch(96.22% 0.0569 95.61);
+  --secondary-background: oklch(100% 0 0);
+  --foreground: oklch(0% 0 0);
+  --main-foreground: oklch(0% 0 0);
+  --main: oklch(84.08% 0.1725 84.2);
+  --border: oklch(0% 0 0);
+  --ring: oklch(0% 0 0);
+  --overlay: oklch(0% 0 0 / 0.8);
+  --shadow: 4px 4px 0px 0px var(--border);
+
+  --chart-1: #ffbf00;
+  --chart-2: #0099ff;
+  --chart-3: #ff7a05;
+  --chart-4: #00d696;
+  --chart-5: #7a83ff;
+  --chart-active-dot: #000;
+}
+
+.dark {
+  --background: oklch(28.91% 0.0359 90.09);
+  --secondary-background: oklch(23.93% 0 0);
+  --foreground: oklch(92.49% 0 0);
+  --main-foreground: oklch(0% 0 0);
+  --main: oklch(77.7% 0.1593880864006951 84.38427202675717);
+  --border: oklch(0% 0 0);
+  --ring: oklch(100% 0 0);
+  --shadow: 4px 4px 0px 0px var(--border);
+
+  --chart-1: #e5ac00;
+  --chart-2: #008ae5;
+  --chart-3: #eb6d00;
+  --chart-4: #00bd84;
+  --chart-5: #7a83ff;
+  --chart-active-dot: #fff;
+}
+
+@theme inline {
+  --color-main: var(--main);
+  --color-background: var(--background);
+  --color-secondary-background: var(--secondary-background);
+  --color-foreground: var(--foreground);
+  --color-main-foreground: var(--main-foreground);
+  --color-border: var(--border);
+  --color-overlay: var(--overlay);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+
+  /* Legacy aliases */
+  --color-primary: var(--main);
+  --color-primary2: var(--chart-3);
+  --color-ink: var(--foreground);
+  --color-inksoft: oklch(55% 0.04 90);
+  --color-surface: var(--secondary-background);
+
+  /* Game semantic hues */
+  --color-bold: oklch(55% 0.18 30);
+  --color-cautious: oklch(55% 0.08 220);
+  --color-cunning: oklch(55% 0.1 290);
+  --color-kind: oklch(55% 0.1 140);
+  --color-health: oklch(55% 0.18 25);
+  --color-clock: oklch(55% 0.1 290);
+  --color-rupees: oklch(65% 0.14 80);
+  --color-karma: oklch(55% 0.08 220);
+
+  --spacing-boxShadowX: 4px;
+  --spacing-boxShadowY: 4px;
+  --spacing-reverseBoxShadowX: -4px;
+  --spacing-reverseBoxShadowY: -4px;
+
+  --radius-base: 5px;
+
+  --shadow-shadow: var(--shadow);
+  --shadow-nav: 4px 4px 0px 0px var(--border);
+
+  --font-weight-base: var(--base-font-weight);
+  --font-weight-heading: var(--heading-font-weight);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-base;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+}
+
+/* ---- Animations ---- */
+@keyframes kenburns {
+  0% {
+    transform: scale(1.05) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.16) translate(-1.5%, -1.5%);
+  }
+}
+.animate-kenburns {
+  animation: kenburns 20s ease-out forwards;
+}
+
+@keyframes kenburns-subtle {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.04) translate(-0.5%, -0.5%);
+  }
+}
+.animate-kenburns-subtle {
+  animation: kenburns-subtle 20s ease-out forwards;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--main) 28%, transparent),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-breathe {
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.text-shadow-soft {
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
+}
