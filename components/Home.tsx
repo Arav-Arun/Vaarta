@@ -9,9 +9,8 @@
  * they have already earned, get them back into a world in one click, and only
  * then offer a blank prompt box.
  *
- * The whole page works signed out. Progress lives in the browser and is
- * mirrored to Postgres when there is a session, so signing in adds durability
- * and a second device rather than unlocking the product.
+ * The proxy requires a signed-in learner before this dashboard can render.
+ * The browser store keeps the interface responsive between durable syncs.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -73,14 +72,6 @@ function localSummary(languageId: string): Summary {
     mastery: masteryOf(objectives),
   };
 }
-
-/**
- * Whether to offer auth at all.
- *
- * Vaarta runs perfectly well with no Supabase project attached, and in that
- * configuration a sign-in button is a dead end rather than a feature.
- */
-const authAvailable = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 const PREFERENCE_DEFAULTS = {
   playerName: "",
@@ -296,17 +287,15 @@ export function Home() {
         <h1 className="font-display text-5xl font-extrabold leading-none tracking-tight text-foreground sm:text-6xl">
           Vaarta
         </h1>
-        {authAvailable && (
-          <Button
-            variant="neutral"
-            size="sm"
-            className="shrink-0"
-            disabled={signingOut}
-            onClick={summary?.signedIn ? signOut : () => router.push("/login")}
-          >
-            {summary?.signedIn ? (signingOut ? "Signing out…" : "Sign out") : "Sign in"}
-          </Button>
-        )}
+        <Button
+          variant="neutral"
+          size="sm"
+          className="shrink-0"
+          disabled={signingOut}
+          onClick={signOut}
+        >
+          {signingOut ? "Signing out…" : "Sign out"}
+        </Button>
       </motion.header>
 
       {/* ---- The learner ---- */}
@@ -392,13 +381,6 @@ export function Home() {
             <p className="text-xs font-bold uppercase tracking-widest text-inksoft">
               Your {language.name}
             </p>
-            {/* Signed out is only reachable with no Supabase project attached,
-                where the browser genuinely is the whole record. */}
-            {!summary.signedIn && !authAvailable && (
-              <p className="text-[11px] font-semibold text-inksoft">
-                Saved in this browser
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

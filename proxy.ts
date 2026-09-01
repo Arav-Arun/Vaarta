@@ -11,11 +11,9 @@ import { type NextRequest, NextResponse } from "next/server";
  *
  * Two deliberate carve-outs:
  *
- *  - **If no Supabase project is configured, nothing is gated.** A checkout with
- *    only a Gemini key still runs the whole game; refusing to start because an
- *    optional dependency is absent would be a worse failure than being open.
  *  - `/login` and `/auth/callback` stay reachable, or signing in could never
- *    complete.
+ *    complete. If Supabase is missing, `/login` remains reachable so it can
+ *    explain the setup issue instead of silently opening the dashboard.
  *  - A warm run (`npm run warm`) is a machine, not a person, and has no session
  *    to offer. It presents `VAARTA_WARM_TOKEN` instead. The bypass exists only
  *    when that variable is set, and an unset or empty value can never match.
@@ -35,9 +33,25 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export async function proxy(request: NextRequest) {
-  // No project attached: the game runs open, exactly as it does offline.
+  const path = request.nextUrl.pathname;
+  const isPublic = PUBLIC_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+  );
+
+  // Fail closed. Letting an unconfigured deployment fall through to the
+  // dashboard hides the sign-in experience and leaves paid API routes open.
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return NextResponse.next({ request });
+    if (path === "/login") return NextResponse.next({ request });
+    if (path.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Authentication is not configured for this deployment." },
+        { status: 503 }
+      );
+    }
+    const target = request.nextUrl.clone();
+    target.pathname = "/login";
+    target.search = "?error=setup";
+    return NextResponse.redirect(target);
   }
 
   // A warm run holds a shared secret rather than a session. Compared only when
@@ -70,11 +84,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
-  );
 
   if (!user && !isPublic) {
     // An API caller wants a status code, not a login page it cannot render.

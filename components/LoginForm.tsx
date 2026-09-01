@@ -9,6 +9,32 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+const AUTH_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+);
+
+/**
+ * Use the canonical public URL for OAuth when it is supplied at build time.
+ * This keeps a production login on the production callback even when a user
+ * reaches the app through a preview, custom-domain alias, or redirect.
+ */
+function oauthCallbackUrl(next: string) {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configuredSiteUrl) {
+    try {
+      const siteUrl = new URL(configuredSiteUrl);
+      if (siteUrl.protocol === "https:" || siteUrl.protocol === "http:") {
+        return `${siteUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      }
+    } catch {
+      // Fall back to the active origin below; the deployment config should
+      // still be corrected to its canonical, valid absolute URL.
+    }
+  }
+
+  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+}
 
 /**
  * Sign-in, which is Google and only Google.
@@ -28,14 +54,23 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
   const authError = searchParams.get("error") === "auth";
+  const setupError = searchParams.get("error") === "setup";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(
-    authError ? "That sign-in attempt expired or was invalid. Try again." : null
+    authError
+      ? "That sign-in attempt expired or was invalid. Try again."
+      : setupError
+        ? "Google sign-in is not configured for this deployment yet."
+        : null
   );
 
   const signInWithGoogle = async () => {
+    if (!AUTH_CONFIGURED) {
+      setError("Google sign-in is not configured for this deployment yet.");
+      return;
+    }
     setError(null);
     setLoading(true);
     posthog.capture("sign_in_with_google_clicked");
@@ -43,7 +78,7 @@ export function LoginForm() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        redirectTo: oauthCallbackUrl(safeNext),
       },
     });
     // A success never returns here: the browser has already left for Google.
@@ -80,10 +115,14 @@ export function LoginForm() {
         className="mt-8 w-full"
         size="lg"
         onClick={signInWithGoogle}
-        disabled={loading}
+        disabled={loading || !AUTH_CONFIGURED}
       >
         <GoogleMark />
-        {loading ? "Redirecting…" : "Continue with Google"}
+        {loading
+          ? "Redirecting…"
+          : AUTH_CONFIGURED
+            ? "Continue with Google"
+            : "Google sign-in unavailable"}
       </Button>
 
       <p className="mt-4 text-sm font-medium text-inksoft">
