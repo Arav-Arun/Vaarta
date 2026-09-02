@@ -31,6 +31,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing world." }, { status: 422 });
   }
 
+  // Gate sprite generation unless enabled or warming presets
+  const warmToken = process.env.VAARTA_WARM_TOKEN;
+  const isWarmRun = Boolean(warmToken && req.headers.get("x-vaarta-warm") === warmToken);
+  const isCustomAllowed = process.env.ENABLE_CUSTOM_WORLDS === "true";
+
+  if (!isCustomAllowed && !isWarmRun) {
+    return NextResponse.json(
+      {
+        error:
+          "Dynamic sprite generation is disabled on this deployment. Run on localhost with your own GEMINI_API_KEY to draw custom characters.",
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const sprite = await generateSprite(
       { setup: body.bible.protagonist, styleBible: body.bible.styleBible },

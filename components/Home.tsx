@@ -39,14 +39,24 @@ import type { PublishedWorldCard } from "@/lib/vaarta/worlds";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
+type SummaryRun = {
+  worldId: string;
+  worldTitle: string;
+  cleared: number;
+  cluesCount: number;
+  updatedAt: string;
+};
+
 type Summary = {
   signedIn: boolean;
+  languageId: string;
   streak: number;
   objectivesCleared: number;
   firstTryClears: number;
   wordsBanked: number;
   wordsDue: number;
   mastery: number;
+  runs?: SummaryRun[];
 };
 
 type Launch = {
@@ -60,16 +70,24 @@ type Launch = {
 
 /** Local evidence, folded into the same shape the API returns. */
 function localSummary(languageId: string): Summary {
-  const runs = store.listRuns().filter((run) => run.languageId === languageId);
-  const objectives = runs.flatMap((run) => Object.values(run.objectives));
+  const localRuns = store.listRuns().filter((run) => run.languageId === languageId);
+  const objectives = localRuns.flatMap((run) => Object.values(run.objectives));
   return {
     signedIn: false,
+    languageId,
     streak: store.loadStreak().streak,
     objectivesCleared: objectives.filter((item) => item.cleared).length,
     firstTryClears: objectives.filter((item) => item.firstTry).length,
     wordsBanked: store.loadBank(languageId).length,
     wordsDue: store.dueWords(languageId).length,
     mastery: masteryOf(objectives),
+    runs: localRuns.map((run) => ({
+      worldId: run.worldId,
+      worldTitle: run.worldTitle,
+      cleared: Object.values(run.objectives).filter((item) => item.cleared).length,
+      cluesCount: run.cluesFound.filter(Boolean).length,
+      updatedAt: run.updatedAt,
+    })),
   };
 }
 
@@ -79,11 +97,13 @@ const PREFERENCE_DEFAULTS = {
   supportLanguage: "English",
 };
 
+const IS_CUSTOM_WORLDS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_CUSTOM_WORLDS === "true";
+
 export function Home() {
   const router = useRouter();
   const [idea, setIdea] = useState("");
   const [signingOut, setSigningOut] = useState(false);
-  const [serverSummary, setServerSummary] = useState<Summary | null>(null);
+  const [serverSummaries, setServerSummaries] = useState<Record<string, Summary>>({});
   const [gallery, setGallery] = useState<PublishedWorldCard[]>([]);
   /** Which of the learner's own worlds is one more click away from removal. */
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
@@ -120,11 +140,8 @@ export function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hydrated, revision, language.id]
   );
-  const runs = useMemo(
-    () => (hydrated ? store.listRuns().filter((run) => run.languageId === language.id) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hydrated, revision, language.id]
-  );
+
+  const serverSummary = serverSummaries[language.id] ?? null;
 
   // A signed-in record is the durable one; the browser fills the gaps between
   // syncs, and is the whole record when there is no session.
@@ -132,19 +149,66 @@ export function Home() {
     ? { ...localRecord, ...serverSummary, signedIn: true }
     : localRecord;
 
+  const walkedRuns: SummaryRun[] = useMemo(() => {
+    const local = localRecord?.runs ?? [];
+    const server = serverSummary?.runs ?? [];
+    const map = new Map<string, SummaryRun>();
+    for (const r of local) map.set(r.worldId, r);
+    for (const r of server) map.set(r.worldId, r);
+    return Array.from(map.values()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }, [localRecord, serverSummary]);
+
   // Pull the durable record when there is a session. Always 200, so a failure
   // here means the network, not the absence of an account.
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
+    const targetLang = language.id;
     void (async () => {
       try {
         const res = await fetch(
-          `/api/vaarta/progress?language=${encodeURIComponent(language.id)}&supportLanguage=${encodeURIComponent(supportLanguage)}`
+          `/api/vaarta/progress?language=${encodeURIComponent(targetLang)}&supportLanguage=${encodeURIComponent(supportLanguage)}`
         );
         if (!res.ok) return;
-        const data = (await res.json()) as Summary & { signedIn: boolean };
-        if (!cancelled) setServerSummary(data.signedIn ? data : null);
+        const data = (await res.json()) as {
+          signedIn: boolean;
+          languageId: string;
+          streak: number;
+          objectivesCleared: number;
+          firstTryClears: number;
+          wordsBanked: number;
+          wordsDue: number;
+          mastery: number;
+          runs?: {
+            worldKey: string;
+            worldTitle: string;
+            cleared: number;
+            cluesFound: boolean[];
+            updatedAt: string;
+          }[];
+        };
+        if (!cancelled && data.signedIn) {
+          setServerSummaries((prev) => ({
+            ...prev,
+            [targetLang]: {
+              signedIn: true,
+              languageId: targetLang,
+              streak: data.streak,
+              objectivesCleared: data.objectivesCleared,
+              firstTryClears: data.firstTryClears,
+              wordsBanked: data.wordsBanked,
+              wordsDue: data.wordsDue,
+              mastery: data.mastery,
+              runs: data.runs?.map((r) => ({
+                worldId: r.worldKey,
+                worldTitle: r.worldTitle,
+                cleared: r.cleared,
+                cluesCount: r.cluesFound?.filter(Boolean).length ?? 0,
+                updatedAt: r.updatedAt,
+              })),
+            },
+          }));
+        }
       } catch {
         // The browser's own record already rendered; nothing to report.
       }
@@ -209,6 +273,7 @@ export function Home() {
 
   const begin = useCallback(
     (worldIdea: string, fromStarter?: string) => {
+      if (!fromStarter && !IS_CUSTOM_WORLDS_ENABLED) return;
       const text = worldIdea.trim();
       if (!text) return;
       const name = currentName() || "Traveller";
@@ -249,7 +314,7 @@ export function Home() {
     setSigningOut(true);
     try {
       await createClient().auth.signOut();
-      setServerSummary(null);
+      setServerSummaries({});
       router.refresh();
     } finally {
       setSigningOut(false);
@@ -431,37 +496,33 @@ export function Home() {
       )}
 
       {/* ---- Pick up where you stopped ---- */}
-      {runs.length > 0 && (
+      {walkedRuns.length > 0 && (
         <section className="mb-12">
           <p className="mb-3 text-xs font-bold uppercase tracking-widest text-inksoft">
             Worlds you have walked
           </p>
           <ul className="space-y-2">
-            {runs.slice(0, 4).map((run) => {
-              const objectives = Object.values(run.objectives);
-              const cleared = objectives.filter((item) => item.cleared).length;
-              return (
-                <li
-                  key={run.worldId}
-                  className="flex items-center gap-4 rounded-base border-2 border-border bg-secondary-background px-4 py-3 shadow-shadow"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-base font-bold text-foreground">
-                      {run.worldTitle}
-                    </p>
-                    <p className="text-[11px] font-semibold text-inksoft">
-                      {cleared} can-do{cleared === 1 ? "" : "s"} cleared ·{" "}
-                      {run.cluesFound.filter(Boolean).length}/3 clues ·{" "}
-                      {new Date(run.updatedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-inksoft">
-                    {/* Worlds are generated per run, so this is a record, not a resume point. */}
-                    finished walking
-                  </span>
-                </li>
-              );
-            })}
+            {walkedRuns.slice(0, 4).map((run) => (
+              <li
+                key={run.worldId}
+                className="flex items-center gap-4 rounded-base border-2 border-border bg-secondary-background px-4 py-3 shadow-shadow"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-display text-base font-bold text-foreground">
+                    {run.worldTitle}
+                  </p>
+                  <p className="text-[11px] font-semibold text-inksoft">
+                    {run.cleared} can-do{run.cleared === 1 ? "" : "s"} cleared ·{" "}
+                    {run.cluesCount}/3 clues ·{" "}
+                    {new Date(run.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-inksoft">
+                  {/* Worlds are generated per run, so this is a record, not a resume point. */}
+                  finished walking
+                </span>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -578,28 +639,55 @@ export function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.12, ease: EASE_OUT }}
       >
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-inksoft">
-          Or describe somewhere else entirely
-        </p>
-        <Card>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-inksoft">
+            Or describe somewhere else entirely
+          </p>
+          {!IS_CUSTOM_WORLDS_ENABLED && (
+            <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
+              Demo Mode · Disabled
+            </span>
+          )}
+        </div>
+        <Card className={!IS_CUSTOM_WORLDS_ENABLED ? "border-ink/20 bg-black/[0.02] dark:bg-white/[0.02]" : ""}>
           <CardContent>
             <Textarea
-              value={idea}
-              onChange={(event) => setIdea(event.target.value)}
+              value={IS_CUSTOM_WORLDS_ENABLED ? idea : ""}
+              onChange={(event) => {
+                if (IS_CUSTOM_WORLDS_ENABLED) setIdea(event.target.value);
+              }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) begin(idea);
+                if (IS_CUSTOM_WORLDS_ENABLED && event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  begin(idea);
+                }
               }}
               maxLength={MAX_CREATE_IDEA_LENGTH}
               rows={3}
-              placeholder={`A place you want to be able to handle in ${language.name}. A repair shop, a wedding you were invited to, a hospital reception desk.`}
-              className="resize-none"
+              disabled={!IS_CUSTOM_WORLDS_ENABLED}
+              readOnly={!IS_CUSTOM_WORLDS_ENABLED}
+              placeholder={
+                IS_CUSTOM_WORLDS_ENABLED
+                  ? `A place you want to be able to handle in ${language.name}. A repair shop, a wedding you were invited to, a hospital reception desk.`
+                  : "To try the custom world generation feature, run on localhost and add a gemini api key with a billing account linked."
+              }
+              className={`resize-none ${
+                !IS_CUSTOM_WORLDS_ENABLED
+                  ? "cursor-not-allowed select-none bg-black/5 text-inksoft/80 opacity-70 dark:bg-white/5"
+                  : ""
+              }`}
             />
           </CardContent>
           <CardFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-[11px] font-medium text-inksoft/70">
-              Cmd + Enter to build · the world and its lesson are written together
+              {IS_CUSTOM_WORLDS_ENABLED
+                ? "Cmd + Enter to build · the world and its lesson are written together"
+                : "To try the custom world generation feature, run on localhost and add a gemini api key with a billing account linked."}
             </span>
-            <Button onClick={() => begin(idea)} disabled={!idea.trim()}>
+            <Button
+              onClick={() => begin(idea)}
+              disabled={!IS_CUSTOM_WORLDS_ENABLED || !idea.trim()}
+              className={!IS_CUSTOM_WORLDS_ENABLED ? "cursor-not-allowed opacity-40" : ""}
+            >
               Build this world
               <ArrowRight size={15} />
             </Button>

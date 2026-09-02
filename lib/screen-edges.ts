@@ -66,25 +66,3 @@ export function normalizeScreenEdges(
   if (extra) next[extra] = true;
   return next;
 }
-
-/** Build `"x,y"` keys for every saved street tile. */
-export function streetCoordKeys(
-  scenes: { kind: string; coord?: { x: number; y: number } }[]
-): Set<string> {
-  const keys = new Set<string>();
-  for (const s of scenes) {
-    if (s.kind === "street" && s.coord) {
-      keys.add(`${s.coord.x},${s.coord.y}`);
-    }
-  }
-  return keys;
-}
-
-/** Repair persisted scenes that were saved with only one open edge. */
-export function repairLoadedStreetEdges(
-  scene: { kind: string; coord?: { x: number; y: number }; edges?: EdgeOpenness },
-  knownStreetCoords: Set<string>
-): EdgeOpenness | undefined {
-  if (scene.kind !== "street" || !scene.coord || !scene.edges) return scene.edges;
-  return normalizeScreenEdges(scene.edges, null, knownStreetCoords, scene.coord);
-}

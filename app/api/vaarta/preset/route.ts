@@ -52,6 +52,16 @@ export async function GET(req: NextRequest) {
  * shared with everyone who picks the same journey.
  */
 export async function PUT(req: NextRequest) {
+  // Only the authorized warmer script can write to the shared global preset cache.
+  const warmToken = process.env.VAARTA_WARM_TOKEN;
+  const isAuthorized =
+    (warmToken && req.headers.get("x-vaarta-warm") === warmToken) ||
+    (!warmToken && process.env.NODE_ENV !== "production" && !process.env.VERCEL);
+
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "Unauthorized preset write." }, { status: 403 });
+  }
+
   let body: { starterId?: string; language?: string; bundle?: unknown };
   try {
     body = (await req.json()) as typeof body;

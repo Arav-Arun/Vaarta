@@ -64,6 +64,12 @@ export async function POST(req: NextRequest) {
   if (!hasTyped && !hasAudio) {
     return NextResponse.json({ error: "Say or type something first." }, { status: 422 });
   }
+  if (hasAudio && body.audioBase64!.length > 4_000_000) {
+    return NextResponse.json(
+      { error: "Audio recording is too large. Please keep phrases under 15 seconds." },
+      { status: 413 }
+    );
+  }
 
   const curriculum = body.curriculum;
   const objective = curriculum.objectives.find((item) => item.id === body.objectiveId);

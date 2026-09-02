@@ -281,13 +281,14 @@ function cachePreset(
  * goal is folded in, which is unique enough in practice and, unlike a random
  * id, survives a reload of the same world.
  */
-function worldIdFor(bible: GameBible): string {
-  const seed = `${bible.title}|${bible.story.goal}`;
+function worldIdFor(bible: GameBible, languageId?: string): string {
+  const lang = languageId ? `${languageId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-` : "";
+  const seed = `${lang}${bible.title}|${bible.story.goal}`;
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash * 31 + seed.charCodeAt(i)) | 0;
   }
-  return `${bible.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32)}-${Math.abs(hash).toString(36)}`;
+  return `${lang}${bible.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}-${Math.abs(hash).toString(36)}`;
 }
 
 export function VaartaWorld({
@@ -617,7 +618,7 @@ export function VaartaWorld({
           }
         }
 
-        const worldKey = worldIdFor(plan.bible);
+        const worldKey = worldIdFor(plan.bible, plan.curriculum.language.id);
         const localRun = store.loadRun(worldKey, plan.bible.title, plan.curriculum.language.id);
         runRef.current = localRun;
         setRun(localRun);

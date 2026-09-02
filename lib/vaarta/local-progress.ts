@@ -140,7 +140,7 @@ function runKey(worldId: string): string {
 
 export function loadRun(worldId: string, worldTitle: string, languageId: string): LocalRun {
   const stored = read<LocalRun | null>(runKey(worldId), null);
-  if (stored?.objectives) return stored;
+  if (stored?.objectives && (!stored.languageId || stored.languageId === languageId)) return stored;
   return {
     worldId,
     worldTitle,

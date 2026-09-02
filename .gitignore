@@ -69,3 +69,6 @@ next-env.d.ts
 
 # allow the env template while keeping real env files ignored
 !.env.example
+
+# allow the README while keeping scratch .md files ignored
+!README.md

@@ -197,33 +197,6 @@ export type VaartaBankedWord = VaartaWord & {
   sourceWorld?: string;
 };
 
-/** The learner's whole record, as the dashboard and the DB both see it. */
-export type VaartaLearnerProgress = {
-  /** Sarvam language code currently being studied. */
-  languageId: string;
-  supportLanguage: string;
-  /** Consecutive days with at least one scored turn. */
-  streak: number;
-  /** ISO date of the most recent scored turn. */
-  lastPlayedAt: string | null;
-  objectivesCleared: number;
-  wordsBanked: number;
-  voiceTurns: number;
-  typedTurns: number;
-  /** 0-100, weighted so an unaided clear counts for more than a coached one. */
-  mastery: number;
-};
-
-/** Per-world progress, so a half-finished world can be resumed honestly. */
-export type VaartaRunProgress = {
-  worldId: string;
-  languageId: string;
-  objectives: VaartaObjectiveProgress[];
-  /** Which of the three characters have given up their clue. */
-  cluesFound: boolean[];
-  updatedAt: string;
-};
-
 /** Empty evidence for one rung. */
 export function emptyObjectiveProgress(objectiveId: string): VaartaObjectiveProgress {
   return {

@@ -42,6 +42,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing world or room index." }, { status: 422 });
   }
 
+  // Gate dynamic room painting unless enabled or warming presets
+  const warmToken = process.env.VAARTA_WARM_TOKEN;
+  const isWarmRun = Boolean(warmToken && req.headers.get("x-vaarta-warm") === warmToken);
+  const isCustomAllowed = process.env.ENABLE_CUSTOM_WORLDS === "true";
+
+  if (!isCustomAllowed && !isWarmRun) {
+    return NextResponse.json(
+      {
+        error:
+          "Dynamic room painting is disabled on this deployment. Run on localhost with your own GEMINI_API_KEY to paint new rooms.",
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const scene = await generateInteriorScene(
       body.bible,

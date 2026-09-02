@@ -8,10 +8,9 @@ import { STARTERS } from "@/lib/vaarta/starters";
 /**
  * The panel beside the sign-in form: the actual worlds you would walk into.
  *
- * It used to carousel film stills carried over from an earlier project, which
- * promised a product this is not. Drawing straight from `STARTERS` means the
- * panel can never drift from what the dashboard offers, and every frame is a
- * real screen from a real journey rather than marketing art.
+ * Draws straight from `STARTERS` so the panel can never drift from what the
+ * dashboard offers, and every frame is a real screen from a real journey
+ * rather than marketing art.
  */
 const INTERVAL_MS = 5000;
 const CROSSFADE_S = 0.6;

@@ -52,21 +52,6 @@ export function mergeKnownCell(cells: MinimapCell[], incoming: MinimapCell): Min
   return next;
 }
 
-/** Collect unique street cells from a list of scenes. */
-export function streetsFromScenes(
-  scenes: {
-    kind: string;
-    coord?: { x: number; y: number };
-    hotspots: { kind: string; clueIndex?: number }[];
-  }[]
-): MinimapCell[] {
-  let cells: MinimapCell[] = [];
-  for (const s of scenes) {
-    const cell = streetCellFromScene(s);
-    if (cell) cells = mergeKnownCell(cells, cell);
-  }
-  return cells;
-}
 
 export function Minimap({
   known,

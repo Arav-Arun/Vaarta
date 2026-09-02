@@ -169,32 +169,3 @@ export function MobileControls({
     </>
   );
 }
-
-/** Portrait-only overlay asking the player to rotate for landscape play. */
-export function RotateToLandscapePrompt({ visible }: { visible: boolean }) {
-  const coarse = useCoarsePointer();
-  const [portrait, setPortrait] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(orientation: portrait) and (max-width: 48rem)");
-    const update = () => setPortrait(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  if (!visible || !coarse || !portrait) return null;
-
-  return (
-    <div className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink/90 px-8 text-center">
-      <div className="rounded-base border-2 border-border bg-secondary-background px-6 py-8 shadow-shadow">
-        <p className="font-display text-xl font-bold text-foreground">
-          Rotate to landscape
-        </p>
-        <p className="mt-2 text-sm font-medium text-inksoft">
-          Vaarta plays best with your phone on its side.
-        </p>
-      </div>
-    </div>
-  );
-}

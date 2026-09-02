@@ -13,6 +13,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { masteryOf, type VaartaObjectiveProgress, type VaartaWord } from "./types";
 import type { VaartaCurriculum, VaartaErrorCode, VaartaInputMode, VaartaOutcome } from "./types";
+import { DEFAULT_LANGUAGE } from "./languages";
 
 /** How long until a word is worth testing again, by how well it is known. */
 const REVIEW_INTERVALS_DAYS = [1, 3, 7, 16, 35];
@@ -128,10 +129,11 @@ async function loadLearner(db: Db, userId: string): Promise<LearnerRow | null> {
 
 /** Everything the dashboard needs, in one round of queries. */
 export async function loadSummary(
-  fallbackLanguageId: string,
+  targetLanguageId: string,
   fallbackSupportLanguage: string
 ): Promise<LearnerSummary> {
-  const empty = emptySummary(fallbackLanguageId, fallbackSupportLanguage);
+  const languageId = targetLanguageId || DEFAULT_LANGUAGE.id;
+  const empty = emptySummary(languageId, fallbackSupportLanguage);
   let db: Db;
   try {
     db = await createClient();
@@ -150,6 +152,8 @@ export async function loadSummary(
   const { data: runRows, error: runsError } = await db
     .from("vaarta_runs")
     .select("id, world_key, world_title, language_id, clues_found, updated_at")
+    .eq("learner", user.id)
+    .eq("language_id", languageId)
     .order("updated_at", { ascending: false })
     .limit(24);
   if (runsError) {
@@ -173,16 +177,16 @@ export async function loadSummary(
     else objectives = (data ?? []) as ObjectiveRow[];
   }
 
-  const languageId = learner?.language_id ?? fallbackLanguageId;
-
   const { count: wordsBanked } = await db
     .from("vaarta_words")
     .select("id", { count: "exact", head: true })
+    .eq("learner", user.id)
     .eq("language_id", languageId);
 
   const { count: wordsDue } = await db
     .from("vaarta_words")
     .select("id", { count: "exact", head: true })
+    .eq("learner", user.id)
     .eq("language_id", languageId)
     .lte("due_at", new Date().toISOString().slice(0, 10));
 
@@ -297,11 +301,13 @@ export async function ensureRun(input: {
   // Replaying a world continues its record rather than opening a second one.
   const { data: existing } = await db
     .from("vaarta_runs")
-    .select("id")
+    .select("id, language_id")
     .eq("learner", user.id)
     .eq("world_key", input.worldKey)
     .maybeSingle();
-  if (existing?.id) return existing.id as string;
+  if (existing?.id && existing.language_id === input.curriculum.language.id) {
+    return existing.id as string;
+  }
 
   const { data, error } = await db
     .from("vaarta_runs")

@@ -3,13 +3,6 @@
 import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 
-/** Maps World boot status strings to stepped progress values. */
-export const BOOT_PROGRESS: Record<string, number> = {
-  "Loading your world…": 20,
-  "Writing your game's bible…": 45,
-  "Painting the first screen… then teaching the engine to see it…": 70,
-};
-
 /**
  * Status text + neobrutalism progress bar for wait states.
  * Pass `value` for determinate progress; omit for indeterminate animation.
