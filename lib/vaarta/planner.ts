@@ -9,8 +9,7 @@
  * person who teaches it.
  */
 
-import { Type } from "@google/genai";
-import { generateContentWithRetry } from "../gemini";
+import { generateContentWithRetry, Type } from "../gemini";
 import { bibleSchema } from "../world-engine";
 import { resolveSpeaker } from "../sarvam";
 import type { GameBible } from "../universe";

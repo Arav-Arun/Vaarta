@@ -1,18 +1,95 @@
-import { GoogleGenAI } from "@google/genai";
 import { DEFAULT_RETRY_OPTS, getErrorStatus, isTransientError, withRetry } from "./retry";
 
 // Nano Banana Flash Image powers every visual in Vaarta.
 const IMAGE_MODEL = process.env.IMAGE_MODEL || "gemini-3.1-flash-image";
 
-let client: GoogleGenAI | null = null;
-export function ai(): GoogleGenAI {
+/** JSON Schema type names accepted by Gemini's REST API. */
+export const Type = {
+  STRING: "STRING",
+  NUMBER: "NUMBER",
+  INTEGER: "INTEGER",
+  BOOLEAN: "BOOLEAN",
+  ARRAY: "ARRAY",
+  OBJECT: "OBJECT",
+} as const;
+
+type GeminiPart = {
+  text?: string;
+  inlineData?: { data: string; mimeType: string };
+};
+
+type GeminiGenerateParams = {
+  model: string;
+  contents: Array<string | GeminiPart> | string | GeminiPart;
+  config?: Record<string, unknown>;
+};
+
+type GeminiResponse = {
+  candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+  text?: string;
+};
+
+function apiKey() {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error(
       "GEMINI_API_KEY is not set. Add it to .env.local to run the game."
     );
   }
-  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  return client;
+  return process.env.GEMINI_API_KEY;
+}
+
+function toGeminiParts(contents: GeminiGenerateParams["contents"]): GeminiPart[] {
+  const items = Array.isArray(contents) ? contents : [contents];
+  return items.map((content) => {
+    if (typeof content === "string") return { text: content };
+    if (content.text !== undefined || content.inlineData !== undefined) return content;
+    throw new Error("Gemini content must be text or inline data.");
+  });
+}
+
+function geminiError(status: number, body: unknown) {
+  const detail =
+    body && typeof body === "object" && "error" in body
+      ? (body.error as { message?: unknown }).message
+      : undefined;
+  const error = new Error(
+    typeof detail === "string" && detail ? detail : `Gemini request failed (${status}).`
+  ) as Error & { status: number };
+  error.status = status;
+  return error;
+}
+
+/**
+ * Calls Gemini directly with the API-key REST flow. This app does not use
+ * Vertex credentials, so native fetch avoids pulling a server-auth dependency
+ * tree into the deployment just to make the same API request.
+ */
+async function generateContent(params: GeminiGenerateParams): Promise<GeminiResponse> {
+  const { model, contents, config = {} } = params;
+  const { systemInstruction, ...generationConfig } = config;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey())}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: toGeminiParts(contents) }],
+        ...(typeof systemInstruction === "string"
+          ? { systemInstruction: { role: "user", parts: [{ text: systemInstruction }] } }
+          : {}),
+        ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
+      }),
+    }
+  );
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw geminiError(response.status, payload);
+
+  const result = (payload ?? {}) as GeminiResponse;
+  const text = result.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text ?? "")
+    .join("");
+  return { ...result, ...(text ? { text } : {}) };
 }
 
 /** Avoid repeatedly retrying a permanent zero-quota response from Gemini. */
@@ -24,23 +101,9 @@ function shouldRetryGeminiRequest(error: unknown): boolean {
 
 /** Gemini generateContent with exponential backoff on transient failures. */
 export async function generateContentWithRetry(
-  params: Parameters<GoogleGenAI["models"]["generateContent"]>[0]
+  params: GeminiGenerateParams
 ) {
-  return withRetry(() => ai().models.generateContent(params), {
-    ...DEFAULT_RETRY_OPTS,
-    shouldRetry: shouldRetryGeminiRequest,
-  });
-}
-
-/**
- * Gemini Omni currently exposes its generation surface through Interactions,
- * rather than `models.generateContent`. Keep its retry policy identical to the
- * rest of the app without forcing callers to know the transport difference.
- */
-export async function generateInteractionWithRetry(
-  params: Parameters<GoogleGenAI["interactions"]["create"]>[0]
-) {
-  return withRetry(() => ai().interactions.create(params), {
+  return withRetry(() => generateContent(params), {
     ...DEFAULT_RETRY_OPTS,
     shouldRetry: shouldRetryGeminiRequest,
   });

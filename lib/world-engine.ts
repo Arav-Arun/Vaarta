@@ -1,5 +1,4 @@
-import { Type } from "@google/genai";
-import { generateContentWithRetry, generateImage, toDataUrl, type ImageResult } from "./gemini";
+import { generateContentWithRetry, generateImage, toDataUrl, Type, type ImageResult } from "./gemini";
 import { VOICE_NAMES } from "./sarvam";
 import type {
   EdgeOpenness,

@@ -16,8 +16,7 @@
  * the model has spoken.
  */
 
-import { Type } from "@google/genai";
-import { generateContentWithRetry } from "../gemini";
+import { generateContentWithRetry, Type } from "../gemini";
 import { bibleBrief } from "../world-engine";
 import type { GameBible } from "../universe";
 import { acceptsRomanisedInput } from "./languages";

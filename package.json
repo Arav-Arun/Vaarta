@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=22.7"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -14,8 +14,13 @@
     "test:vaarta": "node scripts/verify-vaarta.mjs",
     "warm": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/warm-presets.mjs"
   },
+  "allowScripts": {
+    "core-js@3.50.0": true,
+    "protobufjs@7.6.5": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.12.2": true
+  },
   "dependencies": {
-    "@google/genai": "^2.11.0",
     "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-progress": "^1.1.12",
     "@supabase/ssr": "^0.12.3",
@@ -24,7 +29,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",
-    "next": "16.2.10",
+    "next": "16.3.4",
     "posthog-js": "^1.404.1",
     "posthog-node": "^5.45.2",
     "react": "19.2.4",
@@ -39,7 +44,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
