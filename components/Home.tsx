@@ -533,9 +533,6 @@ export function Home() {
           <p className="text-xs font-bold uppercase tracking-widest text-inksoft">
             Start a journey
           </p>
-          <p className="text-[11px] font-semibold text-inksoft">
-            Ready to walk into, in {language.name}
-          </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {starters.map(({ starter, idea: seededIdea }, index) => (
@@ -574,9 +571,6 @@ export function Home() {
           <div className="mb-3 flex items-end justify-between gap-4">
             <p className="text-xs font-bold uppercase tracking-widest text-inksoft">
               Worlds people have shared
-            </p>
-            <p className="text-[11px] font-semibold text-inksoft">
-              Already built, so they open straight away
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -639,15 +633,10 @@ export function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.12, ease: EASE_OUT }}
       >
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2">
           <p className="text-xs font-bold uppercase tracking-widest text-inksoft">
             Or describe somewhere else entirely
           </p>
-          {!IS_CUSTOM_WORLDS_ENABLED && (
-            <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
-              Demo Mode · Disabled
-            </span>
-          )}
         </div>
         <Card className={!IS_CUSTOM_WORLDS_ENABLED ? "border-ink/20 bg-black/[0.02] dark:bg-white/[0.02]" : ""}>
           <CardContent>
